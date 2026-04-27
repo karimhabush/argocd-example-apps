@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: gcr.io/google-samples/gb-frontend
-  tag: v5
+  repository: us-docker.pkg.dev/google-samples/containers/gke/gb-frontend
+  tag: v4
   pullPolicy: IfNotPresent
 
 service:
