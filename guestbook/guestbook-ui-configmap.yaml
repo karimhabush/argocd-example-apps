@@ -44,7 +44,7 @@ data:
     </head>
     <body>
       <div class="card">
-        <h1>Guestbook</h1>
+        <h1>Guestbook updated</h1>
         <span class="badge">Plain YAML Manifests</span>
         <p>This app is deployed using raw Kubernetes YAML manifests — no Helm, no Kustomize, no templating. ArgoCD watches the YAML files in Git and applies them directly.</p>
       </div>
