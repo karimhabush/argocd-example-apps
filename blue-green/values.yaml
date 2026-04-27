@@ -11,15 +11,16 @@ image:
 # --- App config: edit these to demo a new release ---
 app:
   # Version label shown on the page
-  version: "v1"
+  version: "v2"
   # Background color of the page (use any CSS color)
-  color: "#1a73e8"
+  color: "#0d904f"
   # Title displayed on the page
   title: "Blue-Green Demo"
   # Features list shown on the page - add/remove to simulate new releases
   features:
     - "User authentication"
     - "Dashboard view"
+    - "Search functionality"
 
 service:
   type: ClusterIP
