@@ -6,7 +6,7 @@ image:
   pullPolicy: IfNotPresent
 
 app:
-  title: "Helm Guestbook"
+  title: "Helm Guestbook updated"
   subtitle: "Helm Chart"
   color: "#3498db"
   description: "This app is deployed using a Helm chart. Values can be overridden per environment. ArgoCD renders the chart and tracks drift."
