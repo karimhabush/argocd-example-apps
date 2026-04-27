@@ -19,6 +19,8 @@ spec:
       labels:
         app: {{ template "helm-guestbook.name" . }}
         release: {{ .Release.Name }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -26,7 +28,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
-              containerPort: {{ .Values.containerPort }}
+              containerPort: 80
               protocol: TCP
           livenessProbe:
             httpGet:
@@ -36,8 +38,15 @@ spec:
             httpGet:
               path: /
               port: http
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: html
+          configMap:
+            name: {{ template "helm-guestbook.fullname" . }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}

@@ -1,9 +1,8 @@
-wordpress:
-  image:
-    tag: invalid #break this app on purpose until a dedicated broken app is created
-  wordpressPassword: foo
-  mariadb:
-    db:
-      password: bar
-    rootUser:
-      password: baz
+nginx:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+  containerPorts:
+    http: 8080
+  staticSiteConfigmap: helm-dependency-demo-page
+  staticSitePVC: ""

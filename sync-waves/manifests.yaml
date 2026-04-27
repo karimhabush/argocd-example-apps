@@ -1,69 +1,172 @@
 ---
+# Wave -1: PreSync hook — run before anything else
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generateName: upgrade-sql-schema
+  name: schema-migrate
   annotations:
     argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
-  template:
-    spec:
-      containers:
-        - name: upgrade-sql-schema
-          image: alpine:latest
-          command: ["sleep", "5"]
-      restartPolicy: Never
----
-apiVersion: apps/v1
-kind: ReplicaSet
-metadata:
-  name: backend
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      tier: backend
-  template:
-    metadata:
-      labels:
-        tier: backend
-    spec:
-      containers:
-        - name: main
-          image: nginx:latest
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend
-spec:
-  selector:
-    tier: backend
-  ports:
-    - protocol: TCP
-      port: 8080
-      targetPort: 8080
----
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: maint-page-up
-  annotations:
-    argocd.argoproj.io/hook: Sync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "1"
-spec:
-  template:
-    spec:
-      containers:
-        - name: page-up
-          image: alpine:latest
-          command: ["sleep", "2"]
-      restartPolicy: Never
   backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== PreSync: Running schema migration ===' && sleep 5 && echo '=== Done ==='"]
 ---
+# Wave 0 (default): Backend ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-page
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html><head><title>Backend</title>
+    <style>body{font-family:sans-serif;background:#16a085;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}
+    .c{background:rgba(255,255,255,.15);border-radius:16px;padding:40px;text-align:center;max-width:400px}
+    h1{margin-bottom:8px}.b{background:rgba(255,255,255,.25);padding:4px 16px;border-radius:20px;font-size:.9rem}</style>
+    </head><body><div class="c"><h1>Backend API</h1><span class="b">Wave 0</span><p style="margin-top:16px">Deployed first. Frontend depends on this.</p></div></body></html>
+---
+# Wave 0: Backend Deployment
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
+metadata:
+  name: backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+      volumes:
+        - name: html
+          configMap:
+            name: backend-page
+---
+# Wave 0: Backend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: backend
+---
+# Wave 1: Sync hook — run between backend and frontend
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: warmup-cache
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: warmup
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== Wave 1: Warming up cache ===' && sleep 3 && echo '=== Done ==='"]
+---
+# Wave 2: Frontend ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-page
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Sync Waves</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #1abc9c;
+          color: #fff;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+        }
+        .card {
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          padding: 40px;
+          max-width: 520px;
+          width: 90%;
+          text-align: center;
+        }
+        h1 { font-size: 2rem; margin-bottom: 8px; }
+        .badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.25);
+          padding: 4px 16px;
+          border-radius: 20px;
+          font-size: 0.9rem;
+          margin-bottom: 24px;
+        }
+        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; margin-bottom: 16px; }
+        .order { text-align: left; font-size: 0.95rem; list-style: none; }
+        .order li { margin: 6px 0; padding: 8px 12px; background: rgba(255,255,255,0.1); border-radius: 8px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Sync Waves</h1>
+        <span class="badge">Deployment Ordering</span>
+        <p>Resources deploy in wave order. Lower waves go first.</p>
+        <ul class="order">
+          <li>PreSync: schema-migrate</li>
+          <li>Wave 0: Backend (API + Service)</li>
+          <li>Wave 1: warmup-cache (Sync hook)</li>
+          <li>Wave 2: Frontend (this page)</li>
+          <li>Wave 3: cleanup (PostSync hook)</li>
+        </ul>
+      </div>
+    </body>
+    </html>
+---
+# Wave 2: Frontend Deployment
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: frontend
   annotations:
@@ -72,16 +175,30 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      tier: frontend
+      app: frontend
   template:
     metadata:
       labels:
-        tier: frontend
+        app: frontend
     spec:
       containers:
-        - name: main
-          image: nginx:latest
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+      volumes:
+        - name: html
+          configMap:
+            name: frontend-page
 ---
+# Wave 2: Frontend Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -89,26 +206,27 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  selector:
-    tier: frontend
+  type: ClusterIP
   ports:
-    - protocol: TCP
-      port: 80
+    - port: 80
       targetPort: 80
+  selector:
+    app: frontend
 ---
+# Wave 3: PostSync cleanup hook
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: maint-page-down
+  name: post-deploy-cleanup
   annotations:
-    argocd.argoproj.io/hook: Sync
-    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
+  backoffLimit: 0
   template:
     spec:
-      containers:
-        - name: page-down
-          image: alpine:latest
-          command: ["sleep", "2"]
       restartPolicy: Never
+      containers:
+        - name: cleanup
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== PostSync: Cleaning up old resources ===' && sleep 2 && echo '=== Done ==='"]

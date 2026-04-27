@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "helm-guestbook.fullname" . }}
+  labels:
+    app: {{ template "helm-guestbook.name" . }}
+    chart: {{ template "helm-guestbook.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>{{ .Values.app.title }}</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: {{ .Values.app.color }};
+          color: #fff;
+          display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        .card {
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          padding: 40px;
+          max-width: 520px; width: 90%; text-align: center;
+        }
+        h1 { font-size: 2rem; margin-bottom: 8px; }
+        .badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.25);
+          padding: 4px 16px; border-radius: 20px; font-size: 0.9rem; margin-bottom: 24px;
+        }
+        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>{{ .Values.app.title }}</h1>
+        <span class="badge">{{ .Values.app.subtitle }}</span>
+        <p>{{ .Values.app.description }}</p>
+      </div>
+    </body>
+    </html>

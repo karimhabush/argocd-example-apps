@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: before
+  name: pre-sync-db-migrate
   annotations:
     argocd.argoproj.io/hook: PreSync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
@@ -9,8 +9,11 @@ spec:
   template:
     spec:
       containers:
-      - name: sleep
-        image: alpine:latest
-        command: ["sleep", "10"]
+        - name: db-migrate
+          image: busybox:1.37
+          command:
+            - /bin/sh
+            - -c
+            - "echo 'Running pre-sync: database migration...' && sleep 5 && echo 'Migration complete.'"
       restartPolicy: Never
   backoffLimit: 0

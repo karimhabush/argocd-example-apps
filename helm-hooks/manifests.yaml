@@ -1,82 +1,166 @@
 ---
+# Pre-install Hook 1: Database schema migration (runs first, weight -2)
 apiVersion: batch/v1
 kind: Job
 metadata:
-  generateName: upgrade-sql-schema
+  name: db-migrate
   annotations:
-    helm.sh/hook: pre-install
+    helm.sh/hook: pre-install,pre-upgrade
     helm.sh/hook-weight: "-2"
+    helm.sh/hook-delete-policy: before-hook-creation
 spec:
+  backoffLimit: 0
   template:
     spec:
-      containers:
-        - name: upgrade-sql-schema
-          image: alpine:latest
-          command: ["sleep", "5"]
       restartPolicy: Never
+      containers:
+        - name: migrate
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== Running database migration ===' && sleep 5 && echo '=== Migration complete ==='"]
 ---
+# Pre-install Hook 2: Enable maintenance page (runs second, weight -1)
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: maint-page-up
   annotations:
-    helm.sh/hook: pre-install
-    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook: pre-install,pre-upgrade
     helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation
 spec:
+  backoffLimit: 0
   template:
     spec:
-      containers:
-        - name: page-up
-          image: alpine:latest
-          command: ["sleep", "2"]
       restartPolicy: Never
-  backoffLimit: 0
+      containers:
+        - name: maint
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== Enabling maintenance page ===' && sleep 2 && echo '=== Maintenance page enabled ==='"]
 ---
-apiVersion: apps/v1
-kind: ReplicaSet
+# Main app: ConfigMap with HTML page
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: frontend
+  name: helm-hooks-page
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Helm Hooks</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #e67e22;
+          color: #fff;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+        }
+        .card {
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(10px);
+          border-radius: 16px;
+          padding: 40px;
+          max-width: 520px;
+          width: 90%;
+          text-align: center;
+        }
+        h1 { font-size: 2rem; margin-bottom: 8px; }
+        .badge {
+          display: inline-block;
+          background: rgba(255,255,255,0.25);
+          padding: 4px 16px;
+          border-radius: 20px;
+          font-size: 0.9rem;
+          margin-bottom: 24px;
+        }
+        p { font-size: 1rem; line-height: 1.6; opacity: 0.9; margin-bottom: 16px; }
+        .order { text-align: left; font-size: 0.95rem; }
+        .order li { margin: 6px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h1>Helm Hooks</h1>
+        <span class="badge">Lifecycle Hooks</span>
+        <p>This app uses Helm hooks to run jobs before and after the main deployment.</p>
+        <ol class="order">
+          <li>pre-install: db-migrate (weight -2)</li>
+          <li>pre-install: maint-page-up (weight -1)</li>
+          <li>Main app deploys</li>
+          <li>post-install: maint-page-down</li>
+        </ol>
+      </div>
+    </body>
+    </html>
+---
+# Main app: Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helm-hooks-app
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
-      tier: frontend
+      app: helm-hooks-app
   template:
     metadata:
       labels:
-        tier: frontend
+        app: helm-hooks-app
     spec:
       containers:
-        - name: main
-          image: nginx:latest
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+      volumes:
+        - name: html
+          configMap:
+            name: helm-hooks-page
 ---
+# Main app: Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend
-  annotations:
-    helm.sh/hook-weight: "2"
+  name: helm-hooks-app
 spec:
-  selector:
-    tier: frontend
+  type: ClusterIP
   ports:
-    - protocol: TCP
-      port: 80
+    - port: 80
       targetPort: 80
+  selector:
+    app: helm-hooks-app
 ---
+# Post-install Hook: Disable maintenance page
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: maint-page-down
   annotations:
-    helm.sh/hook: post-install
+    helm.sh/hook: post-install,post-upgrade
     helm.sh/hook-delete-policy: before-hook-creation
 spec:
+  backoffLimit: 0
   template:
     spec:
-      containers:
-        - name: page-down
-          image: alpine:latest
-          command: ["sleep", "2"]
       restartPolicy: Never
+      containers:
+        - name: maint
+          image: busybox:1.37
+          command: ["/bin/sh", "-c", "echo '=== Disabling maintenance page ===' && sleep 2 && echo '=== Maintenance page disabled ==='"]

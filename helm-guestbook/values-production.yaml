@@ -1,2 +1,7 @@
+replicaCount: 3
+app:
+  subtitle: "Helm Chart (Production)"
+  color: "#2c3e50"
+  description: "This is the PRODUCTION override. Helm values-production.yaml was used to change the color, replica count, and subtitle."
 service:
   type: LoadBalancer
