@@ -51,7 +51,7 @@ spec:
       volumes:
         - name: html
           configMap:
-            name: {{ template "bluegreen-demo.fullname" . }}
+            name: {{ template "bluegreen-demo.fullname" . }}-{{ .Values.app.version }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}

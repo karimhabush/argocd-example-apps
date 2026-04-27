@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ template "bluegreen-demo.fullname" . }}
+  name: {{ template "bluegreen-demo.fullname" . }}-{{ .Values.app.version }}
   labels:
     app: {{ template "bluegreen-demo.name" . }}
     chart: {{ template "bluegreen-demo.chart" . }}

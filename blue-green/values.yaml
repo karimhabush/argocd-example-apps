@@ -13,7 +13,7 @@ app:
   # Version label shown on the page
   version: "v1"
   # Background color of the page (use any CSS color)
-  color: "#50C878"
+  color: "#1a73e8"
   # Title displayed on the page
   title: "Blue-Green Demo"
   # Features list shown on the page - add/remove to simulate new releases
