@@ -1,28 +1,31 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: {{ template "helm-guestbook.fullname" . }}
+  name: {{ template "bluegreen-demo.fullname" . }}
   labels:
-    app: {{ template "helm-guestbook.name" . }}
-    chart: {{ template "helm-guestbook.chart" . }}
+    app: {{ template "bluegreen-demo.name" . }}
+    chart: {{ template "bluegreen-demo.chart" . }}
     release: {{ .Release.Name }}
-    heritage: {{ .Release.Service }}
 spec:
   replicas: {{ .Values.replicaCount }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: {{ template "helm-guestbook.name" . }}
+      app: {{ template "bluegreen-demo.name" . }}
       release: {{ .Release.Name }}
   strategy:
     blueGreen:
-      activeService: {{ template "helm-guestbook.fullname" . }}
-      previewService: {{ template "helm-guestbook.fullname" . }}-preview
+      activeService: {{ template "bluegreen-demo.fullname" . }}
+      previewService: {{ template "bluegreen-demo.fullname" . }}-preview
+      autoPromotionEnabled: false
   template:
     metadata:
       labels:
-        app: {{ template "helm-guestbook.name" . }}
+        app: {{ template "bluegreen-demo.name" . }}
         release: {{ .Release.Name }}
+      annotations:
+        # Force rollout when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       containers:
         - name: {{ .Chart.Name }}
@@ -32,6 +35,9 @@ spec:
             - name: http
               containerPort: 80
               protocol: TCP
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
           livenessProbe:
             httpGet:
               path: /
@@ -42,6 +48,10 @@ spec:
               port: http
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+      volumes:
+        - name: html
+          configMap:
+            name: {{ template "bluegreen-demo.fullname" . }}
     {{- with .Values.nodeSelector }}
       nodeSelector:
 {{ toYaml . | indent 8 }}
