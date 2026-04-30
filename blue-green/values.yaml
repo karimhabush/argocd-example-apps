@@ -11,9 +11,9 @@ image:
 # --- App config: edit these to demo a new release ---
 app:
   # Version label shown on the page
-  version: "v2"
+  version: "v3"
   # Background color of the page (use any CSS color)
-  color: "#0d904f"
+  color: "#06402b"
   # Title displayed on the page
   title: "Blue-Green Demo"
   # Features list shown on the page - add/remove to simulate new releases
