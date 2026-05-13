@@ -1,6 +1,4 @@
-# Blue-Green Demo App
-# Change these values and push to trigger a new blue-green deployment.
-
+# Todo App — Blue-Green with Chaos Testing
 replicaCount: 2
 
 hpa:
@@ -9,23 +7,18 @@ hpa:
   targetCPUUtilizationPercentage: 80
 
 image:
-  repository: nginx
-  tag: "1.27-alpine"
-  pullPolicy: IfNotPresent
+  repository: todo-api
+  tag: "latest"
+  pullPolicy: Never
 
-# --- App config: edit these to demo a new release ---
-app:
-  # Version label shown on the page
-  version: "v3"
-  # Background color of the page (use any CSS color)
-  color: "#06402b"
-  # Title displayed on the page
-  title: "Blue-Green Demo"
-  # Features list shown on the page - add/remove to simulate new releases
-  features:
-    - "User authentication"
-    - "Dashboard view"
-    - "Search functionality"
+postgres:
+  image:
+    repository: postgres
+    tag: "16-alpine"
+  db: tododb
+  user: todouser
+  password: todopass
+  storage: 256Mi
 
 service:
   type: ClusterIP
