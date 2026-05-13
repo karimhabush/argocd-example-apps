@@ -1,12 +1,17 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-name: bluegreen-demo-hpa
+  name: {{ template "bluegreen-demo.fullname" . }}-hpa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ template "bluegreen-demo.name" . }}
+    chart: {{ template "bluegreen-demo.chart" . }}
+    release: {{ .Release.Name }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Rollout
-    name: bluegreen-demo
+    name: {{ template "bluegreen-demo.fullname" . }}
   minReplicas: {{ .Values.hpa.minReplicas }}
   maxReplicas: {{ .Values.hpa.maxReplicas }}
   metrics:
